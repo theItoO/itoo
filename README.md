@@ -1,3 +1,4 @@
 ## Itoo
 
-An App Inventor 2 extension created using Rush.
+Itoo extension :D
+Check out community;
