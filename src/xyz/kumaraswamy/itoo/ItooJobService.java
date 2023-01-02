@@ -9,7 +9,12 @@ import android.content.IntentFilter;
 import android.os.PersistableBundle;
 import android.os.PowerManager;
 import android.util.Log;
+import com.google.appinventor.components.runtime.util.JsonUtil;
+import org.json.JSONException;
 import xyz.kumaraswamy.itoox.ItooCreator;
+
+import java.util.ArrayList;
+import java.util.HashMap;
 
 public class ItooJobService extends JobService {
 
@@ -17,14 +22,15 @@ public class ItooJobService extends JobService {
 
     private ItooCreator creator;
 
-    private boolean registered = false;
-    private String[] actions;
+    private final HashMap<String, String> actions = new HashMap<>();
 
     private String screen;
     private String procedure;
 
     JobParameters parms;
     private boolean restart;
+
+    private boolean registered = false;
 
 
     @Override
@@ -55,12 +61,26 @@ public class ItooJobService extends JobService {
             Log.e(TAG, "Error While Executing Procedure");
             throw new RuntimeException(e);
         }
-        actions = extras.getStringArray("actions");
-        if (actions == null || actions[0] == null) return true;
+        // noinspection
+        ArrayList<String> listActions;
+        try {
+            listActions = (ArrayList<String>)
+                    JsonUtil.getObjectFromJson(extras.getString("actions"), true);
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+        for (String register : listActions) {
+            registered = true;
+            String[] split = register.split("\u0000");
 
-        IntentFilter filter = new IntentFilter(actions[0]);
-        registerReceiver(receiver, filter);
-        registered = true;
+            String action = split[0];
+            IntentFilter filter = new IntentFilter(action);
+
+            registerReceiver(receiver, filter);
+            Log.d(TAG, "Registered() " + action);
+
+            this.actions.put(action, split[1]);
+        }
         return true;
     }
 
@@ -69,7 +89,10 @@ public class ItooJobService extends JobService {
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "Event()");
             try {
-                creator.startProcedureInvoke(actions[1]);
+                String action = intent.getAction();
+                String procedure = actions.get(action);
+
+                creator.startProcedureInvoke(procedure);
             } catch (Throwable e) {
                 throw new RuntimeException(e);
             }

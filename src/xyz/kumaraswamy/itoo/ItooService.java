@@ -13,16 +13,33 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
+import com.google.appinventor.components.runtime.util.JsonUtil;
+import xyz.kumaraswamy.githubreport.Github;
 import xyz.kumaraswamy.itoox.ItooCreator;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 public class ItooService extends Service {
 
     private static final String TAG = "ItooService";
 
     private ItooCreator creator;
+    private Data data;
 
+    private final HashMap<String, String> actions = new HashMap<>();
 
-    private String[] actions;
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        data = new Data(this);
+        try {
+            data.put("running", "yes");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -30,13 +47,25 @@ public class ItooService extends Service {
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+        try {
+            data.put("running", "no");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "Service Started[]");
+        if (!data.exists("screen")) return START_NOT_STICKY;
 
-        String notifTitle = intent.getStringExtra("notification_title");
-        String notifSubtitle = intent.getStringExtra("notification_subtitle");
-
-        foregroundInit(notifTitle, notifSubtitle);
+        try {
+            foregroundInit();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         PowerManager manager = (PowerManager) getSystemService(POWER_SERVICE);
         PowerManager.WakeLock wakeLock = manager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Doraemon");
@@ -45,39 +74,56 @@ public class ItooService extends Service {
         wakeLock.setReferenceCounted(false);
         wakeLock.acquire(86_400_000L);
 
-        String screen = intent.getStringExtra("screen");
-        String procedure = intent.getStringExtra("procedure");
-
+        String screen;
+        String procedure;
+        try {
+            screen = data.get("screen");
+            procedure = data.get("procedure");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         try {
             creator = new ItooCreator(this,
                     procedure,
                     screen, true);
-        } catch (Throwable e) {
-            Log.e(TAG, "Error While Executing Procedure");
-            throw new RuntimeException(e);
-        }
-        actions = intent.getStringArrayExtra("actions");
-        if (actions == null || actions[0] == null) return START_STICKY;
 
-        IntentFilter filter = new IntentFilter(actions[0]);
-        registerReceiver(receiver, filter);
+//            // noinspection
+            ArrayList<String> listActions = (ArrayList<String>)
+            JsonUtil.getObjectFromJson(data.get("actions"), true);
+
+            for (String register : listActions) {
+                String[] split = register.split("\u0000");
+
+                String action = split[0];
+                IntentFilter filter = new IntentFilter(action);
+
+                registerReceiver(receiver, filter);
+                Log.d(TAG, "Registered() " + action);
+
+                this.actions.put(action, split[1]);
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
+            Log.e(TAG, "Error While Executing Procedure");
+            throw new RuntimeException(e.getMessage() + " call [" + procedure + "]");
+        }
         return START_STICKY;
     }
 
-    private void foregroundInit(String notifTitle, String notifSubtitle) {
+    private void foregroundInit() throws IOException {
         notificationChannel();
         startForeground(123321,
-                        new NotificationCompat.Builder(this, "ItooApple")
+                new NotificationCompat.Builder(this, "ItooApple")
                         .setOngoing(true)
-                        .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                        .setSmallIcon(Integer.parseInt(data.get("icon")))
                         .setContentIntent(
                                 PendingIntent.getService(
                                         this,
                                         127,
                                         new Intent(), PendingIntent.FLAG_IMMUTABLE))
                         .setPriority(NotificationCompat.PRIORITY_MAX)
-                        .setContentTitle(notifTitle)
-                        .setContentText(notifSubtitle)
+                        .setContentTitle(data.get("notification_title"))
+                        .setContentText(data.get("notification_subtitle"))
                         .build());
     }
 
@@ -100,7 +146,10 @@ public class ItooService extends Service {
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "Event()");
             try {
-                creator.startProcedureInvoke(actions[1]);
+                String action = intent.getAction();
+                String procedure = actions.get(action);
+
+                creator.startProcedureInvoke(procedure);
             } catch (Throwable e) {
                 throw new RuntimeException(e);
             }
