@@ -9,36 +9,42 @@ import java.io.IOException;
 
 public class Data {
 
-    private final Context context;
+  private final File filesDir;
 
-    public Data(Context context) {
-        this.context = context;
-    }
+  public Data(Context context) {
+    filesDir = context.getFilesDir();
+  }
 
-    public void put(String name, String value) throws IOException {
-        File file = new File(context.getFilesDir(), name);
+  public Data(Context context, String name) {
+    filesDir = new File(context.getFilesDir(), "/" + name + "/");
+    filesDir.mkdirs();
+  }
 
-        FileOutputStream fos = new FileOutputStream(file);
-        fos.write(value.getBytes());
-        fos.close();
-    }
+  public Data put(String name, String value) throws IOException {
+    File file = new File(filesDir, name);
 
-    public String get(String name) throws IOException {
-        File file = new File(context.getFilesDir(), name);
+    FileOutputStream fos = new FileOutputStream(file);
+    fos.write(value.getBytes());
+    fos.close();
+    return this;
+  }
 
-        FileInputStream fis = new FileInputStream(file);
-        byte[] bytes = new byte[fis.available()];
-        fis.read(bytes);
-        return new String(bytes);
-    }
+  public String get(String name) throws IOException {
+    File file = new File(filesDir, name);
 
-    public void delete(String name) {
-        File file = new File(context.getFilesDir(), name);
-        file.delete();
-    }
+    FileInputStream fis = new FileInputStream(file);
+    byte[] bytes = new byte[fis.available()];
+    fis.read(bytes);
+    return new String(bytes);
+  }
 
-    public boolean exists(String name) {
-        File file = new File(context.getFilesDir(), name);
-        return file.exists();
-    }
+  public void delete(String name) {
+    File file = new File(filesDir, name);
+    if (file.exists())
+      file.delete();
+  }
+
+  public boolean exists(String name) {
+    return new File(filesDir, name).exists();
+  }
 }

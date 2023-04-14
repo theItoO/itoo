@@ -9,5 +9,8 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="dev-deps" level="project" />
     <orderEntry type="library" name="deps" level="project" />
+    <orderEntry type="library" name="runtime-sources" level="project" />
+    <orderEntry type="library" name="itoo-x" level="project" />
+    <orderEntry type="library" name="annotations-sources" level="project" />
   </component>
 </module>

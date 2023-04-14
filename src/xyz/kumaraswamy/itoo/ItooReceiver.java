@@ -23,9 +23,9 @@ public class ItooReceiver extends BroadcastReceiver {
         String procedure = extras.getString("procedure");
         boolean restart = extras.getBoolean("restart");
 
-        String[] actions = extras.getStringArray("actions");
+//        String[] actions = extras.getStringArray("actions");
 
-        JobInfo job = Itoo.build(context, jobId, 1000, restart, screen, procedure, actions);
+        JobInfo job = Itoo.build(context, jobId, 1000, restart, screen, procedure);
         JobScheduler scheduler = (JobScheduler)
                     context.getSystemService(Context.JOB_SCHEDULER_SERVICE);
 

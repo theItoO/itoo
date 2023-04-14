@@ -6,7 +6,7 @@
       <item index="1" class="java.lang.String" itemvalue="com.google.appinventor.components.annotations.SimpleProperty" />
     </list>
   </component>
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_19" project-jdk-name="8" project-jdk-type="JavaSDK">
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_8" project-jdk-name="Android API 33, extension level 5 Platform" project-jdk-type="Android SDK">
     <output url="file://$PROJECT_DIR$/classes" />
   </component>
 </project>

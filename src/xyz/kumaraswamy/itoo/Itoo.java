@@ -1,17 +1,13 @@
 package xyz.kumaraswamy.itoo;
 
 import android.app.ActivityManager;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
+import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.media.AudioAttributes;
-import android.net.Uri;
 import android.os.Build;
 import android.os.PersistableBundle;
 import android.util.Log;
@@ -21,12 +17,10 @@ import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
 import com.google.appinventor.components.runtime.Component;
 import com.google.appinventor.components.runtime.ComponentContainer;
 import com.google.appinventor.components.runtime.errors.YailRuntimeError;
-import com.google.appinventor.components.runtime.util.JsonUtil;
 import org.json.JSONException;
 import xyz.kumaraswamy.itoox.InstanceForm;
 import xyz.kumaraswamy.itoox.ItooInt;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,24 +28,27 @@ import java.util.List;
 
 public class Itoo extends AndroidNonvisibleComponent {
 
-  private final String screenName;
+  private String screenName;
   private final JobScheduler scheduler;
+  private final AlarmManager manager;
 
-  private final NotificationManager manager;
-
-  private final List<String> actions = new ArrayList<>();
+//  private final List<String> actions = new ArrayList<>();
   private int icon = android.R.drawable.ic_dialog_alert;
 
   private final Data data;
+  private final Data userData;
+
   private final HashMap<String, String> events = new HashMap<>();
 
   public Itoo(ComponentContainer container) throws Throwable {
     super(container.$form());
     scheduler = (JobScheduler) form.getSystemService(Context.JOB_SCHEDULER_SERVICE);
-    manager = (NotificationManager) form.getSystemService(Context.NOTIFICATION_SERVICE);
+    manager = (AlarmManager) form.getSystemService(Context.ALARM_SERVICE);
+
     screenName = form.getClass().getSimpleName();
     ItooInt.saveIntStuff(form, screenName);
     if (form instanceof InstanceForm.FormX) {
+      screenName = ((InstanceForm.FormX) form).creator.refScreen;
       InstanceForm.FormX formX = (InstanceForm.FormX) form;
       formX.creator.listener = new InstanceForm.Listener() {
         @Override
@@ -66,6 +63,7 @@ public class Itoo extends AndroidNonvisibleComponent {
       };
     }
     data = new Data(form);
+    userData = new Data(form, "stored_files");
   }
 
   @SimpleFunction
@@ -73,15 +71,14 @@ public class Itoo extends AndroidNonvisibleComponent {
     events.put(eventName, procedure);
   }
 
-  @SimpleFunction(description = "Create a service with a listen to an action. " +
-          "When the action is invoke, " +
-          "the corresponding procedure gets called right away.")
-  public void CreateWithTrigger(String action, String procedure) {
-    if (!action.startsWith("android.intent.action.")) {
-      action = "android.intent.action." + action;
-    }
-    this.actions.add(action + "\u0000" + procedure);
-  }
+//  @SimpleFunction(description = "Create a service with a listen to an action. " +
+//          "When the action is invoke, " +
+//          "the corresponding procedure gets called right away.")
+//  public void CreateWithTrigger(String action, String procedure) {
+//    if (!action.startsWith("android.intent.action."))
+//      action = "android.intent.action." + action;
+//    this.actions.add(action + "\u0000" + procedure);
+//  }
 
   @SimpleProperty
   public void NotificationIcon(int icon) {
@@ -94,30 +91,60 @@ public class Itoo extends AndroidNonvisibleComponent {
   }
 
   @SimpleFunction
-  public void SaveProcessForBoot() throws IOException {
+  public void SaveProcessForBoot(String procedure,
+                                 String title,
+                                 String subtitle) throws IOException, JSONException {
+    dumpDetails(procedure, title, subtitle);
     data.put("boot", "process");
   }
 
   @SimpleFunction(description = "Starts a background service with procedure call")
-  public boolean CreateProcess(String procedure, String title, String subtitle) throws IOException, JSONException {
+  public boolean CreateProcess(String procedure, String title, String subtitle) throws IOException {
     StopProcess();
-    data.put("screen", screenName);
+    dumpDetails(procedure, title, subtitle);
 
-    data.put("procedure", procedure);
-
-    data.put("notification_title", title);
-    data.put("notification_subtitle", subtitle);
-    data.put("icon", String.valueOf(icon));
-
-    data.put("actions", JsonUtil.getJsonRepresentation(actions));
     Intent service = new Intent(form, ItooService.class);
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
       form.startForegroundService(service);
-    } else {
-      form.startService(service);
-    }
+    else form.startService(service);
     return true;
+  }
+
+  @SimpleFunction(description = "Sets an alarm at the given time. The procedure will be invoked when the alarm is fired.")
+  public void CreateAlarm(String procedure, String title, String subtitle, long time) throws IOException {
+    dumpDetails(procedure, title, subtitle);
+
+    Intent intent = new Intent(form, AlarmReceiver.class);
+    PendingIntent pd = PendingIntent.getBroadcast(form, 7, intent, PendingIntent.FLAG_IMMUTABLE);
+    AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(time, pd);
+
+    manager.setAlarmClock(info, pd);
+  }
+
+  @SimpleFunction(description = "To be called from the background service.")
+  public void LaunchApp(String screen) throws JSONException, ClassNotFoundException {
+    if (!(form instanceof InstanceForm.FormX))
+      return;
+    InstanceForm.FormX formX = (InstanceForm.FormX) form;
+    ItooInt itooInt = new ItooInt(form, formX.creator.refScreen);
+
+    String pkgName = itooInt.getScreenPkgName(screen);
+    Log.d("ItooCasual", "Starting activity " + pkgName);
+    Intent intent = new Intent(formX.creator.context, Class.forName(pkgName));
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+
+    formX.creator.context.startActivity(intent);
+  }
+
+  private void dumpDetails(String procedure,
+                           String title,
+                           String subtitle) throws IOException {
+    data.put("screen", screenName)
+            .put("procedure", procedure)
+            .put("notification_title", title)
+            .put("notification_subtitle", subtitle)
+            .put("icon", String.valueOf(icon));
   }
 
   private boolean isMyServiceRunning(Class<?> serviceClass) {
@@ -158,9 +185,13 @@ public class Itoo extends AndroidNonvisibleComponent {
                             String procedure,
                             boolean restart) throws JSONException {
 
+//    return scheduler.schedule(build(
+//            form, jobId, latency, restart, screenName, procedure,
+//            new String[]{JsonUtil.getJsonRepresentation(actions)}))
+//            == JobScheduler.RESULT_SUCCESS;
+
     return scheduler.schedule(build(
-            form, jobId, latency, restart, screenName, procedure,
-            new String[]{JsonUtil.getJsonRepresentation(actions)}))
+            form, jobId, latency, restart, screenName, procedure))
             == JobScheduler.RESULT_SUCCESS;
   }
 
@@ -169,8 +200,7 @@ public class Itoo extends AndroidNonvisibleComponent {
                               long latency,
                               boolean restart,
                               String screenName,
-                              String procedure,
-                              String[] actions) {
+                              String procedure) {
 
     ComponentName name = new ComponentName(context, ItooJobService.class);
 
@@ -185,7 +215,7 @@ public class Itoo extends AndroidNonvisibleComponent {
     bundle.putString("procedure", procedure);
     bundle.putBoolean("restart", restart);
 
-    bundle.putStringArray("actions", actions);
+//    bundle.putStringArray("actions", actions);
 
     job.setExtras(bundle);
     return job.build();
@@ -216,51 +246,15 @@ public class Itoo extends AndroidNonvisibleComponent {
     scheduler.cancel(jobId);
   }
 
-  @SimpleFunction(description = "Sends a simple notification, sound can be empty.")
-  public void Notification(int id,
-                           String title,
-                           String text,
-                           String subtext,
-                           boolean hasSound,
-                           String bigtext) {
-    createNotificationChannel(hasSound);
-    Notification.Builder builder;
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      builder = new Notification.Builder(form, "Itoo");
-    } else {
-      builder = new Notification.Builder(form);
-    }
-    builder.setContentTitle(title)
-            .setContentText(text)
-            .setSubText(subtext)
-            .setOnlyAlertOnce(true)
-            .setContentIntent(
-                    PendingIntent.getBroadcast(form,
-                            500, new Intent(),
-                            PendingIntent.FLAG_IMMUTABLE))
-            .setSmallIcon(android.R.drawable.ic_dialog_info);
-    if (!bigtext.isEmpty()) {
-      builder.setStyle(new Notification.BigTextStyle().bigText(bigtext));
-    }
-    manager.notify(id, builder.build());
+  @SimpleFunction
+  public void StoreProperty(String name, String value) throws IOException {
+    userData.put(name, value);
   }
 
-  private void createNotificationChannel(boolean sound) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      NotificationChannel serviceChannel = new NotificationChannel(
-              "Itoo",
-              "Itoo",
-              NotificationManager.IMPORTANCE_MAX
-      );
-      if (sound) {
-        AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .build();
-
-        serviceChannel.setSound(Uri.fromFile(new File("")), audioAttributes);
-      }
-      manager.createNotificationChannel(serviceChannel);
-    }
+  @SimpleFunction
+  public String FetchProperty(String name) throws IOException {
+    if (!userData.exists(name))
+      return "";
+    return userData.get(name);
   }
 }

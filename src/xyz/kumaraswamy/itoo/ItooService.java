@@ -7,18 +7,14 @@ import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
-import com.google.appinventor.components.runtime.util.JsonUtil;
-import xyz.kumaraswamy.githubreport.Github;
 import xyz.kumaraswamy.itoox.ItooCreator;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 
 public class ItooService extends Service {
@@ -88,20 +84,20 @@ public class ItooService extends Service {
                     screen, true);
 
 //            // noinspection
-            ArrayList<String> listActions = (ArrayList<String>)
-            JsonUtil.getObjectFromJson(data.get("actions"), true);
-
-            for (String register : listActions) {
-                String[] split = register.split("\u0000");
-
-                String action = split[0];
-                IntentFilter filter = new IntentFilter(action);
-
-                registerReceiver(receiver, filter);
-                Log.d(TAG, "Registered() " + action);
-
-                this.actions.put(action, split[1]);
-            }
+//            ArrayList<String> listActions = (ArrayList<String>)
+//            JsonUtil.getObjectFromJson(data.get("actions"), true);
+//
+//            for (String register : listActions) {
+//                String[] split = register.split("\u0000");
+//
+//                String action = split[0];
+//                IntentFilter filter = new IntentFilter(action);
+//
+//                registerReceiver(receiver, filter);
+//                Log.d(TAG, "Registered() " + action);
+//
+//                this.actions.put(action, split[1]);
+//            }
         } catch (Throwable e) {
             e.printStackTrace();
             Log.e(TAG, "Error While Executing Procedure");

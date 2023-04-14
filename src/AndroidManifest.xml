@@ -6,6 +6,10 @@
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+
+
     <application>
 
         <service android:name="xyz.kumaraswamy.itoo.ItooService"
@@ -27,6 +31,9 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
             </intent-filter>
         </receiver>
+
+        <receiver android:name="xyz.kumaraswamy.itoo.AlarmReceiver"
+                  android:exported="true"/>
 
     </application>
 </manifest>
