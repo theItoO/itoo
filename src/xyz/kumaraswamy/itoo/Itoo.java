@@ -1,32 +1,28 @@
 package xyz.kumaraswamy.itoo;
 
-import android.app.ActivityManager;
-import android.app.AlarmManager;
-import android.app.PendingIntent;
+import android.app.*;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
-import android.os.PersistableBundle;
+import android.content.ServiceConnection;
+import android.os.*;
 import android.util.Log;
 import com.google.appinventor.components.annotations.SimpleFunction;
 import com.google.appinventor.components.annotations.SimpleProperty;
-import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
-import com.google.appinventor.components.runtime.Component;
-import com.google.appinventor.components.runtime.ComponentContainer;
+import com.google.appinventor.components.runtime.*;
 import com.google.appinventor.components.runtime.errors.YailRuntimeError;
 import org.json.JSONException;
 import xyz.kumaraswamy.itoox.InstanceForm;
+import xyz.kumaraswamy.itoox.ItooActivityFixer;
 import xyz.kumaraswamy.itoox.ItooInt;
+import xyz.kumaraswamy.itoox.ItooLifecycle;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 
-public class Itoo extends AndroidNonvisibleComponent {
+public class Itoo extends AndroidNonvisibleComponent implements OnStopListener {
 
   private String screenName;
   private final JobScheduler scheduler;
@@ -39,6 +35,10 @@ public class Itoo extends AndroidNonvisibleComponent {
   private final Data userData;
 
   private final HashMap<String, String> events = new HashMap<>();
+
+  private boolean mBound = false;
+  Messenger mService = null;
+
 
   public Itoo(ComponentContainer container) throws Throwable {
     super(container.$form());
@@ -61,9 +61,32 @@ public class Itoo extends AndroidNonvisibleComponent {
           formX.creator.startProcedureInvoke(procedure, args);
         }
       };
+    } else {
+      final Application application = form.getApplication();
+
+      ItooLifecycle lifecycle = null;
+      ItooLifecycle finalLifecycle = lifecycle;
+      ItooLifecycle.ItooAppDestroyed listener = new ItooLifecycle.ItooAppDestroyed() {
+        @Override
+        public void destroyed() {
+          if (!mBound) return;
+          // Create and send a message to the service, using a supported 'what' value.
+          Message msg = Message.obtain(null, ItooService.MSG_APPLICATION_STOPPED, 0, 0);
+          try {
+            mService.send(msg);
+          } catch (RemoteException e) {
+            e.printStackTrace();
+          }
+
+          application.unregisterActivityLifecycleCallbacks(finalLifecycle);
+        }
+      };
+      lifecycle = new ItooLifecycle(listener);
+      application.registerActivityLifecycleCallbacks(lifecycle);
     }
     data = new Data(form);
     userData = new Data(form, "stored_files");
+    form.registerForOnStop(this);
   }
 
   @SimpleFunction
@@ -108,8 +131,28 @@ public class Itoo extends AndroidNonvisibleComponent {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
       form.startForegroundService(service);
     else form.startService(service);
+
+    form.bindService(service, connection, Context.BIND_AUTO_CREATE);
+
     return true;
   }
+
+  private ServiceConnection connection = new ServiceConnection() {
+
+    @Override
+    public void onServiceConnected(ComponentName className,
+                                   IBinder service) {
+      // We've bound to LocalService, cast the IBinder and get LocalService instance.
+      mService = new Messenger(service);
+      mBound = true;
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName arg0) {
+      mBound = false;
+    }
+  };
+
 
   @SimpleFunction(description = "Sets an alarm at the given time. The procedure will be invoked when the alarm is fired.")
   public void CreateAlarm(String procedure, String title, String subtitle, long time) throws IOException {
@@ -257,4 +300,10 @@ public class Itoo extends AndroidNonvisibleComponent {
       return "";
     return userData.get(name);
   }
+
+  @Override
+  public void onStop() {
+
+  }
+
 }

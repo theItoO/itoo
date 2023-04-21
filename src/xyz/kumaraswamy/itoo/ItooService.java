@@ -7,9 +7,7 @@ import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
-import android.os.IBinder;
-import android.os.PowerManager;
+import android.os.*;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import xyz.kumaraswamy.itoox.ItooCreator;
@@ -19,12 +17,42 @@ import java.util.HashMap;
 
 public class ItooService extends Service {
 
+    public static final int MSG_APPLICATION_STOPPED = 1;
+
     private static final String TAG = "ItooService";
 
     private ItooCreator creator;
     private Data data;
 
     private final HashMap<String, String> actions = new HashMap<>();
+
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        mMessenger = new Messenger(new IncomingHandler(this));
+        return mMessenger.getBinder();
+    }
+
+    static class IncomingHandler extends Handler {
+        private final ItooService service;
+
+        public IncomingHandler(ItooService service) {
+            this.service = service;
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            if (msg.what == MSG_APPLICATION_STOPPED) {
+                Log.d(TAG, "Message received, app stopped!");
+                service.creator.onAppStopped();
+            } else {
+                super.handleMessage(msg);
+            }
+        }
+    }
+
+    Messenger mMessenger;
+
 
     @Override
     public void onCreate() {
@@ -35,11 +63,6 @@ public class ItooService extends Service {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
     }
 
     @Override
@@ -83,21 +106,6 @@ public class ItooService extends Service {
                     procedure,
                     screen, true);
 
-//            // noinspection
-//            ArrayList<String> listActions = (ArrayList<String>)
-//            JsonUtil.getObjectFromJson(data.get("actions"), true);
-//
-//            for (String register : listActions) {
-//                String[] split = register.split("\u0000");
-//
-//                String action = split[0];
-//                IntentFilter filter = new IntentFilter(action);
-//
-//                registerReceiver(receiver, filter);
-//                Log.d(TAG, "Registered() " + action);
-//
-//                this.actions.put(action, split[1]);
-//            }
         } catch (Throwable e) {
             e.printStackTrace();
             Log.e(TAG, "Error While Executing Procedure");
