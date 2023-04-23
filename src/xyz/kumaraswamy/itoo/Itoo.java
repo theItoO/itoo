@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.*;
 import android.util.Log;
+import com.google.appinventor.components.annotations.SimpleEvent;
 import com.google.appinventor.components.annotations.SimpleFunction;
 import com.google.appinventor.components.annotations.SimpleProperty;
 import com.google.appinventor.components.runtime.*;
@@ -22,7 +23,7 @@ import xyz.kumaraswamy.itoox.ItooLifecycle;
 import java.io.IOException;
 import java.util.HashMap;
 
-public class Itoo extends AndroidNonvisibleComponent implements OnStopListener {
+public class Itoo extends AndroidNonvisibleComponent  {
 
   private String screenName;
   private final JobScheduler scheduler;
@@ -62,31 +63,11 @@ public class Itoo extends AndroidNonvisibleComponent implements OnStopListener {
         }
       };
     } else {
-      final Application application = form.getApplication();
-
-      ItooLifecycle lifecycle = null;
-      ItooLifecycle finalLifecycle = lifecycle;
-      ItooLifecycle.ItooAppDestroyed listener = new ItooLifecycle.ItooAppDestroyed() {
-        @Override
-        public void destroyed() {
-          if (!mBound) return;
-          // Create and send a message to the service, using a supported 'what' value.
-          Message msg = Message.obtain(null, ItooService.MSG_APPLICATION_STOPPED, 0, 0);
-          try {
-            mService.send(msg);
-          } catch (RemoteException e) {
-            e.printStackTrace();
-          }
-
-          application.unregisterActivityLifecycleCallbacks(finalLifecycle);
-        }
-      };
-      lifecycle = new ItooLifecycle(listener);
-      application.registerActivityLifecycleCallbacks(lifecycle);
+      Intent service = new Intent(form, ItooService.class);
+      form.bindService(service, connection, Context.BIND_AUTO_CREATE);
     }
     data = new Data(form);
     userData = new Data(form, "stored_files");
-    form.registerForOnStop(this);
   }
 
   @SimpleFunction
@@ -122,7 +103,7 @@ public class Itoo extends AndroidNonvisibleComponent implements OnStopListener {
   }
 
   @SimpleFunction(description = "Starts a background service with procedure call")
-  public boolean CreateProcess(String procedure, String title, String subtitle) throws IOException {
+  public boolean CreateProcess(String procedure, String title, String subtitle) throws IOException, RemoteException {
     StopProcess();
     dumpDetails(procedure, title, subtitle);
 
@@ -137,7 +118,15 @@ public class Itoo extends AndroidNonvisibleComponent implements OnStopListener {
     return true;
   }
 
-  private ServiceConnection connection = new ServiceConnection() {
+  // called the by the Itoo creator
+  // when the service is about to end or
+  // flagEnd() has been called
+
+  public void signalEnd() {
+    ServiceEnds();
+  }
+
+  private final ServiceConnection connection = new ServiceConnection() {
 
     @Override
     public void onServiceConnected(ComponentName className,
@@ -153,8 +142,12 @@ public class Itoo extends AndroidNonvisibleComponent implements OnStopListener {
     }
   };
 
+  @SimpleEvent(description = "Called when the service is about to end.")
+  public void ServiceEnds() {
+    EventDispatcher.dispatchEvent(this, "ServiceEnds");
+  }
 
-  @SimpleFunction(description = "Sets an alarm at the given time. The procedure will be invoked when the alarm is fired.")
+//  @SimpleFunction(description = "Sets an alarm at the given time. The procedure will be invoked when the alarm is fired.")
   public void CreateAlarm(String procedure, String title, String subtitle, long time) throws IOException {
     dumpDetails(procedure, title, subtitle);
 
@@ -165,7 +158,7 @@ public class Itoo extends AndroidNonvisibleComponent implements OnStopListener {
     manager.setAlarmClock(info, pd);
   }
 
-  @SimpleFunction(description = "To be called from the background service.")
+//  @SimpleFunction(description = "To be called from the background service.")
   public void LaunchApp(String screen) throws JSONException, ClassNotFoundException {
     if (!(form instanceof InstanceForm.FormX))
       return;
@@ -207,8 +200,9 @@ public class Itoo extends AndroidNonvisibleComponent implements OnStopListener {
     return isMyServiceRunning(ItooService.class);
   }
 
-  @SimpleFunction(description = "Ends the service from inside")
-  public void StopProcess() {
+  @SimpleFunction(description = "Stops a foreground process.")
+  public void StopProcess() throws RemoteException {
+
     data.delete("screen");
 
     data.delete("procedure");
@@ -219,7 +213,19 @@ public class Itoo extends AndroidNonvisibleComponent implements OnStopListener {
 
     data.delete("actions");
 
-    form.stopService(new Intent(form, ItooService.class));
+//    form.stopService(new Intent(form, ItooService.class));
+
+    if (mService != null) {
+      // we send a message to the service to end
+      // itself
+      Message message = Message.obtain(null,
+              ItooService.MSG_FLAG_END,
+              0,
+              0);
+      mService.send(message);
+    } else {
+      Log.d("ItooService", "StopProcess() mService Null");
+    }
   }
 
   @SimpleFunction(description = "Starts a background service with procedure call")
@@ -299,11 +305,6 @@ public class Itoo extends AndroidNonvisibleComponent implements OnStopListener {
     if (!userData.exists(name))
       return "";
     return userData.get(name);
-  }
-
-  @Override
-  public void onStop() {
-
   }
 
 }
