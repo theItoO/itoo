@@ -12,5 +12,8 @@
     <orderEntry type="library" name="runtime-sources" level="project" />
     <orderEntry type="library" name="itoo-x" level="project" />
     <orderEntry type="library" name="annotations-sources" level="project" />
+    <orderEntry type="library" name="dev-deps1" level="project" />
+    <orderEntry type="library" name="rush" level="project" />
+    <orderEntry type="library" name="androidx" level="project" />
   </component>
 </module>

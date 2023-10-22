@@ -13,12 +13,9 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
-import com.google.appinventor.components.runtime.util.JsonUtil;
 import xyz.kumaraswamy.itoox.ItooCreator;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 public class ItooService extends Service {
 
