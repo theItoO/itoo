@@ -5,15 +5,11 @@ import android.app.job.JobService;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.PersistableBundle;
 import android.os.PowerManager;
 import android.util.Log;
-import com.google.appinventor.components.runtime.util.JsonUtil;
-import org.json.JSONException;
 import xyz.kumaraswamy.itoox.ItooCreator;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 
 public class ItooJobService extends JobService {
@@ -62,25 +58,25 @@ public class ItooJobService extends JobService {
             throw new RuntimeException(e);
         }
         // noinspection
-        ArrayList<String> listActions;
-        try {
-            listActions = (ArrayList<String>)
-                    JsonUtil.getObjectFromJson(extras.getString("actions"), true);
-        } catch (JSONException e) {
-            throw new RuntimeException(e);
-        }
-        for (String register : listActions) {
-            registered = true;
-            String[] split = register.split("\u0000");
-
-            String action = split[0];
-            IntentFilter filter = new IntentFilter(action);
-
-            registerReceiver(receiver, filter);
-            Log.d(TAG, "Registered() " + action);
-
-            this.actions.put(action, split[1]);
-        }
+//        ArrayList<String> listActions;
+//        try {
+//            listActions = (ArrayList<String>)
+//                    JsonUtil.getObjectFromJson(extras.getString("actions"), true);
+//        } catch (JSONException e) {
+//            throw new RuntimeException(e);
+//        }
+//        for (String register : listActions) {
+//            registered = true;
+//            String[] split = register.split("\u0000");
+//
+//            String action = split[0];
+//            IntentFilter filter = new IntentFilter(action);
+//
+//            registerReceiver(receiver, filter);
+//            Log.d(TAG, "Registered() " + action);
+//
+//            this.actions.put(action, split[1]);
+//        }
         return true;
     }
 

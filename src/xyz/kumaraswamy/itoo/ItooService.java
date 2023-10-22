@@ -14,7 +14,6 @@ import android.os.PowerManager;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import com.google.appinventor.components.runtime.util.JsonUtil;
-import xyz.kumaraswamy.githubreport.Github;
 import xyz.kumaraswamy.itoox.ItooCreator;
 
 import java.io.IOException;
@@ -25,10 +24,35 @@ public class ItooService extends Service {
 
     private static final String TAG = "ItooService";
 
+    public static final String END_ACTION = "itoo_end_process";
+
+    public static class EndActionReceiver extends BroadcastReceiver {
+
+        private final ItooService service;
+
+        public EndActionReceiver(ItooService service) {
+            this.service = service;
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "Received Itoo End Process Action");
+          try {
+            service.unregisterReceiver(this);
+            service.creator.flagEnd();
+            service.stopForeground(Service.STOP_FOREGROUND_REMOVE);
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        }
+    }
+
+    private final EndActionReceiver endActionReceiver = new EndActionReceiver(this);
+
     private ItooCreator creator;
     private Data data;
 
-    private final HashMap<String, String> actions = new HashMap<>();
+//    private final HashMap<String, String> actions = new HashMap<>();
 
     @Override
     public void onCreate() {
@@ -74,6 +98,8 @@ public class ItooService extends Service {
         wakeLock.setReferenceCounted(false);
         wakeLock.acquire(86_400_000L);
 
+        registerReceiver(endActionReceiver, new IntentFilter(END_ACTION));
+
         String screen;
         String procedure;
         try {
@@ -88,20 +114,20 @@ public class ItooService extends Service {
                     screen, true);
 
 //            // noinspection
-            ArrayList<String> listActions = (ArrayList<String>)
-            JsonUtil.getObjectFromJson(data.get("actions"), true);
-
-            for (String register : listActions) {
-                String[] split = register.split("\u0000");
-
-                String action = split[0];
-                IntentFilter filter = new IntentFilter(action);
-
-                registerReceiver(receiver, filter);
-                Log.d(TAG, "Registered() " + action);
-
-                this.actions.put(action, split[1]);
-            }
+//            ArrayList<String> listActions = (ArrayList<String>)
+//            JsonUtil.getObjectFromJson(data.get("actions"), true);
+//
+//            for (String register : listActions) {
+//                String[] split = register.split("\u0000");
+//
+//                String action = split[0];
+//                IntentFilter filter = new IntentFilter(action);
+//
+//                registerReceiver(receiver, filter);
+//                Log.d(TAG, "Registered() " + action);
+//
+//                this.actions.put(action, split[1]);
+//            }
         } catch (Throwable e) {
             e.printStackTrace();
             Log.e(TAG, "Error While Executing Procedure");
@@ -141,18 +167,18 @@ public class ItooService extends Service {
         }
     }
 
-    private final BroadcastReceiver receiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Log.d(TAG, "Event()");
-            try {
-                String action = intent.getAction();
-                String procedure = actions.get(action);
-
-                creator.startProcedureInvoke(procedure);
-            } catch (Throwable e) {
-                throw new RuntimeException(e);
-            }
-        }
-    };
+//    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+//        @Override
+//        public void onReceive(Context context, Intent intent) {
+//            Log.d(TAG, "Event()");
+//            try {
+//                String action = intent.getAction();
+//                String procedure = actions.get(action);
+//
+//                creator.startProcedureInvoke(procedure);
+//            } catch (Throwable e) {
+//                throw new RuntimeException(e);
+//            }
+//        }
+//    };
 }
