@@ -1,10 +1,12 @@
-package xyz.kumaraswamy.itoo;
+package xyz.kumaraswamy.itoo.receivers;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.util.Log;
+import xyz.kumaraswamy.itoo.Data;
+import xyz.kumaraswamy.itoo.ItooService;
 
 import java.io.IOException;
 

@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.os.PersistableBundle;
 import android.os.PowerManager;
 import android.util.Log;
+import xyz.kumaraswamy.itoo.receivers.ItooReceiver;
 import xyz.kumaraswamy.itoox.ItooCreator;
 
 import java.util.HashMap;

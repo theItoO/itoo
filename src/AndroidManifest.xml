@@ -21,10 +21,10 @@
                  android:process=":doraemonx"
                  android:exported="true"/>
 
-        <receiver android:name="xyz.kumaraswamy.itoo.ItooReceiver"
+        <receiver android:name="xyz.kumaraswamy.itoo.receivers.ItooReceiver"
                   android:exported="true"/>
 
-        <receiver android:name="xyz.kumaraswamy.itoo.BootReceiver"
+        <receiver android:name="xyz.kumaraswamy.itoo.receivers.BootReceiver"
                   android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
@@ -32,8 +32,7 @@
             </intent-filter>
         </receiver>
 
-        <receiver android:name="xyz.kumaraswamy.itoo.AlarmReceiver"
+        <receiver android:name="xyz.kumaraswamy.itoo.receivers.StartReceiver"
                   android:exported="true"/>
-
     </application>
 </manifest>

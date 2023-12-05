@@ -1,4 +1,4 @@
-package xyz.kumaraswamy.itoo;
+package xyz.kumaraswamy.itoo.receivers;
 
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import xyz.kumaraswamy.itoo.Itoo;
 
 public class ItooReceiver extends BroadcastReceiver {
 
