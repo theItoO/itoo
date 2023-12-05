@@ -283,13 +283,13 @@ public class Itoo extends AndroidNonvisibleComponent {
   }
 
   @SimpleFunction
-  public void StoreProperty(String name, String value) throws IOException {
-    userData.put(name, value);
+  public void StoreProperty(String name, Object value) throws IOException, JSONException {
+    userData.put(name, JsonUtil.getJsonRepresentation(value));
   }
 
   @SimpleFunction
-  public String FetchProperty(String name) throws IOException {
+  public Object FetchProperty(String name) throws IOException, JSONException {
     if (!userData.exists(name)) return "";
-    return userData.get(name);
+    return JsonUtil.getObjectFromJson(userData.get(name), true);
   }
 }
