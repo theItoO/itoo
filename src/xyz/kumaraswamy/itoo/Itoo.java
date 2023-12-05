@@ -239,18 +239,20 @@ public class Itoo extends AndroidNonvisibleComponent {
   }
 
   @SimpleFunction
-  public void RegisterBroadcast(String name, final String procedure) {
-    if (!isSky)
-      return;
+  public void RegisterBroadcast(final String name, final String procedure) {
     BroadcastReceiver register = new BootReceiver() {
       @Override
       public void onReceive(Context context, Intent intent) {
         try {
+          Object value = JsonUtil.getObjectFromJson(
+              intent.getStringExtra("value"), true);
+          if (!isSky) {
+            // that means it's a message from background -> app
+            BroadcastEvent(name, value);
+            return;
+          }
           Log.i("Itoo", "Starting Invoke: " + procedure);
-          creator.startProcedureInvoke(procedure,
-                  JsonUtil.getObjectFromJson(
-                          intent.getStringExtra("value"), true)
-          );
+          creator.startProcedureInvoke(procedure, value);
         } catch (Throwable e) {
           throw new RuntimeException(e);
         }
@@ -258,6 +260,11 @@ public class Itoo extends AndroidNonvisibleComponent {
     };
     form.registerReceiver(register, new IntentFilter(name));
     activeBroadcasts.put(name, register);
+  }
+
+  @SimpleEvent(description = "Should be used for receiving events from the background process")
+  public void BroadcastEvent(String name, Object message) {
+    EventDispatcher.dispatchEvent(this, "BroadcastEvent", name, message);
   }
 
   @SimpleFunction
