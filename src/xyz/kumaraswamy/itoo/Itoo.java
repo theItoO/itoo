@@ -212,6 +212,24 @@ public class Itoo extends AndroidNonvisibleComponent {
     return info != null;
   }
 
+  // TODO:
+  //  it would be good if we confirm it working once more
+  @SimpleFunction
+  public void RegisterStart(String procedure, long timeMillis) {
+    // convert it to realtime millis
+    timeMillis = SystemClock.elapsedRealtime() + timeMillis - System.currentTimeMillis();
+
+    Intent intent = new Intent(form, StartReceiver.class);
+    intent.putExtra("procedure", procedure);
+    intent.putExtra("screen_name", screenName);
+
+    PendingIntent pendingIntent = PendingIntent.getBroadcast(form,
+        (timeMillis + procedure).hashCode(),
+        intent,
+        PendingIntent.FLAG_IMMUTABLE);
+    alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, timeMillis, pendingIntent);
+  }
+
   @SimpleFunction(description = "Broadcasts a message to a service/process")
   public void Broadcast(String name, Object message) throws JSONException {
     Intent intent = new Intent(name)
