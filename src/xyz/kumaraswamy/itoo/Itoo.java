@@ -1,19 +1,26 @@
 package xyz.kumaraswamy.itoo;
 
 import android.app.ActivityManager;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
 import android.content.*;
 import android.os.Build;
 import android.os.PersistableBundle;
+import android.os.SystemClock;
 import android.util.Log;
+import com.google.appinventor.components.annotations.SimpleEvent;
 import com.google.appinventor.components.annotations.SimpleFunction;
 import com.google.appinventor.components.annotations.SimpleProperty;
 import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
 import com.google.appinventor.components.runtime.Component;
 import com.google.appinventor.components.runtime.ComponentContainer;
+import com.google.appinventor.components.runtime.EventDispatcher;
 import com.google.appinventor.components.runtime.util.JsonUtil;
 import org.json.JSONException;
+import xyz.kumaraswamy.itoo.receivers.BootReceiver;
+import xyz.kumaraswamy.itoo.receivers.StartReceiver;
 import xyz.kumaraswamy.itoox.InstanceForm;
 import xyz.kumaraswamy.itoox.ItooCreator;
 import xyz.kumaraswamy.itoox.ItooInt;
@@ -26,7 +33,9 @@ import java.util.List;
 public class Itoo extends AndroidNonvisibleComponent {
 
   private String screenName;
+
   private final JobScheduler scheduler;
+  private final AlarmManager alarmManager;
 
   private final List<String> actions = new ArrayList<>();
   private int icon = android.R.drawable.ic_dialog_alert;
@@ -44,6 +53,7 @@ public class Itoo extends AndroidNonvisibleComponent {
   public Itoo(ComponentContainer container) throws Throwable {
     super(container.$form());
     scheduler = (JobScheduler) form.getSystemService(Context.JOB_SCHEDULER_SERVICE);
+    alarmManager = (AlarmManager) form.getSystemService(Context.ALARM_SERVICE);
 
     screenName = form.getClass().getSimpleName();
     ItooInt.saveIntStuff(form, screenName);
@@ -127,10 +137,10 @@ public class Itoo extends AndroidNonvisibleComponent {
 
   private void dumpDetails(String procedure, String title, String subtitle) throws IOException {
     data.put("screen", screenName)
-            .put("procedure", procedure)
-            .put("notification_title", title)
-            .put("notification_subtitle", subtitle)
-            .put("icon", String.valueOf(icon));
+        .put("procedure", procedure)
+        .put("notification_title", title)
+        .put("notification_subtitle", subtitle)
+        .put("icon", String.valueOf(icon));
   }
 
   private boolean isMyServiceRunning(Class<?> serviceClass) {
@@ -152,7 +162,6 @@ public class Itoo extends AndroidNonvisibleComponent {
 
   @SimpleFunction(description = "Starts a background service with procedure call")
   public boolean CreateTask(long latency, int jobId, String procedure, boolean restart) {
-
     return scheduler.schedule(build(form, jobId, latency, restart, screenName, procedure)) == JobScheduler.RESULT_SUCCESS;
   }
 
@@ -161,9 +170,9 @@ public class Itoo extends AndroidNonvisibleComponent {
     ComponentName name = new ComponentName(context, ItooJobService.class);
 
     JobInfo.Builder job = new JobInfo.Builder(jobId, name)
-            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE)
-            .setMinimumLatency(latency)
-            .setOverrideDeadline(latency + 100);
+        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE)
+        .setMinimumLatency(latency)
+        .setOverrideDeadline(latency + 100);
 
     PersistableBundle bundle = new PersistableBundle();
 
@@ -233,8 +242,8 @@ public class Itoo extends AndroidNonvisibleComponent {
   @SimpleFunction(description = "Broadcasts a message to a service/process")
   public void Broadcast(String name, Object message) throws JSONException {
     Intent intent = new Intent(name)
-            .putExtra("value",
-                    JsonUtil.getJsonRepresentation(message));
+        .putExtra("value",
+            JsonUtil.getJsonRepresentation(message));
     form.sendBroadcast(intent);
   }
 
