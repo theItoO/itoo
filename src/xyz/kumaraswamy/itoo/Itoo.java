@@ -88,9 +88,31 @@ public class Itoo extends AndroidNonvisibleComponent {
       });
     } else {
       creator = null;
+      listenMessagesFromBackground();
     }
     data = new Data(form);
     userData = new Data(form, "stored_files");
+  }
+
+  /**
+   * To receive messages to UI from Background
+   */
+  private void listenMessagesFromBackground() {
+    BroadcastReceiver register = new BroadcastReceiver() {
+      @Override
+      public void onReceive(Context context, Intent intent) {
+        String name = intent.getStringExtra("name");
+        try {
+          Object value = JsonUtil.getObjectFromJson(
+              intent.getStringExtra("value"), true);
+          BroadcastEvent(name, value);
+        } catch (JSONException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    };
+    form.registerReceiver(register, new IntentFilter("itoo_x_reserved"));
+    activeBroadcasts.put("itoo_x_reserved", register);
   }
 
   @SimpleFunction
@@ -241,25 +263,34 @@ public class Itoo extends AndroidNonvisibleComponent {
 
   @SimpleFunction(description = "Broadcasts a message to a service/process")
   public void Broadcast(String name, Object message) throws JSONException {
-    Intent intent = new Intent(name)
-        .putExtra("value",
-            JsonUtil.getJsonRepresentation(message));
+    Intent intent;
+    if (isSky) {
+      // we are in background
+      intent = new Intent("itoo_x_reserved")
+          .putExtra("value",
+              JsonUtil.getJsonRepresentation(message))
+          .putExtra("name", name);
+    } else {
+      intent = new Intent(name)
+          .putExtra("value",
+              JsonUtil.getJsonRepresentation(message));
+    }
     form.sendBroadcast(intent);
   }
 
   @SimpleFunction
   public void RegisterBroadcast(final String name, final String procedure) {
+    if (!isSky) {
+      // because this block is to only receive messages from UI
+      // to the background
+      return;
+    }
     BroadcastReceiver register = new BootReceiver() {
       @Override
       public void onReceive(Context context, Intent intent) {
         try {
           Object value = JsonUtil.getObjectFromJson(
               intent.getStringExtra("value"), true);
-          if (!isSky) {
-            // that means it's a message from background -> app
-            BroadcastEvent(name, value);
-            return;
-          }
           Log.i("Itoo", "Starting Invoke: " + procedure);
           creator.startProcedureInvoke(procedure, value);
         } catch (Throwable e) {
