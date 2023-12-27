@@ -5,11 +5,16 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
-import android.content.*;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Build;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
 import android.util.Log;
+
 import com.google.appinventor.components.annotations.SimpleEvent;
 import com.google.appinventor.components.annotations.SimpleFunction;
 import com.google.appinventor.components.annotations.SimpleProperty;
@@ -17,8 +22,12 @@ import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
 import com.google.appinventor.components.runtime.Component;
 import com.google.appinventor.components.runtime.ComponentContainer;
 import com.google.appinventor.components.runtime.EventDispatcher;
+import com.google.appinventor.components.runtime.OnPauseListener;
+import com.google.appinventor.components.runtime.OnResumeListener;
 import com.google.appinventor.components.runtime.util.JsonUtil;
+
 import org.json.JSONException;
+
 import xyz.kumaraswamy.itoo.receivers.BootReceiver;
 import xyz.kumaraswamy.itoo.receivers.StartReceiver;
 import xyz.kumaraswamy.itoox.InstanceForm;
@@ -26,26 +35,26 @@ import xyz.kumaraswamy.itoox.ItooCreator;
 import xyz.kumaraswamy.itoox.ItooInt;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Map;
 
-public class Itoo extends AndroidNonvisibleComponent {
+public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener, OnResumeListener {
+
+  private static final String TAG = "Itoo";
 
   private String screenName;
 
   private final JobScheduler scheduler;
   private final AlarmManager alarmManager;
 
-  private final List<String> actions = new ArrayList<>();
   private int icon = android.R.drawable.ic_dialog_alert;
 
   private final Data data;
   private final Data userData;
 
-  private final HashMap<String, String> events = new HashMap<>();
+  private final Map<String, String> events = new HashMap<>();
 
-  private final HashMap<String, BroadcastReceiver> activeBroadcasts = new HashMap<>();
+  private final Map<String, BroadcastReceiver> registeredBroadcasts = new HashMap<>();
 
   private boolean isSky = false;
   private final ItooCreator creator;
@@ -79,14 +88,17 @@ public class Itoo extends AndroidNonvisibleComponent {
       formX.creator.addEndListener(new ItooCreator.EndListener() {
         @Override
         public void onEnd() {
-          Log.i("Ito", "onEnd() called");
-          for (BroadcastReceiver register : activeBroadcasts.values()) {
+          Log.i("Itoo", "onEnd() called");
+          for (BroadcastReceiver register : registeredBroadcasts.values()) {
             form.unregisterReceiver(register);
           }
-          activeBroadcasts.clear();
+          registeredBroadcasts.clear();
         }
       });
     } else {
+      form.registerForOnPause(this);
+      form.registerForOnResume(this);
+
       creator = null;
       listenMessagesFromBackground();
     }
@@ -112,7 +124,30 @@ public class Itoo extends AndroidNonvisibleComponent {
       }
     };
     form.registerReceiver(register, new IntentFilter("itoo_x_reserved"));
-    activeBroadcasts.put("itoo_x_reserved", register);
+    registeredBroadcasts.put("itoo_x_reserved", register);
+  }
+
+  @Override
+  public void onResume() {
+    Log.d(TAG, "onResume()");
+
+    for (Map.Entry<String, BroadcastReceiver> broadcast : registeredBroadcasts.entrySet()) {
+      form.registerReceiver(broadcast.getValue(), new IntentFilter(broadcast.getKey()));
+    }
+  }
+
+  @SuppressWarnings("CommentedOutCode")
+  @Override
+  public void onPause() {
+    Log.d(TAG, "onPause()");
+
+    for (BroadcastReceiver register : registeredBroadcasts.values()) {
+      form.unregisterReceiver(register);
+    }
+    // EXPERIMENTAL: block forward
+    // if (!isSky) {
+    //  ActionReceiver.unregister(form);
+    // }
   }
 
   @SimpleFunction
@@ -120,14 +155,6 @@ public class Itoo extends AndroidNonvisibleComponent {
     events.put(eventName, procedure);
   }
 
-//  @SimpleFunction(description = "Create a service with a listen to an action. " +
-//          "When the action is invoke, " +
-//          "the corresponding procedure gets called right away.")
-//  public void CreateWithTrigger(String action, String procedure) {
-//    if (!action.startsWith("android.intent.action."))
-//      action = "android.intent.action." + action;
-//    this.actions.add(action + "\u0000" + procedure);
-//  }
 
   @SimpleProperty
   public void NotificationIcon(int icon) {
@@ -152,8 +179,11 @@ public class Itoo extends AndroidNonvisibleComponent {
 
     Intent service = new Intent(form, ItooService.class);
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) form.startForegroundService(service);
-    else form.startService(service);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      form.startForegroundService(service);
+    } else {
+      form.startService(service);
+    }
     return true;
   }
 
@@ -202,8 +232,6 @@ public class Itoo extends AndroidNonvisibleComponent {
     bundle.putString("procedure", procedure);
     bundle.putBoolean("restart", restart);
 
-//    bundle.putStringArray("actions", actions);
-
     job.setExtras(bundle);
     return job.build();
   }
@@ -243,9 +271,8 @@ public class Itoo extends AndroidNonvisibleComponent {
     return info != null;
   }
 
-  // TODO:
-  //  it would be good if we confirm it working once more
-  @SimpleFunction
+  // @SimpleFunction
+  @SuppressWarnings("unused")
   public void RegisterStart(String procedure, long timeMillis) {
     // convert it to realtime millis
     timeMillis = SystemClock.elapsedRealtime() + timeMillis - System.currentTimeMillis();
@@ -299,7 +326,7 @@ public class Itoo extends AndroidNonvisibleComponent {
       }
     };
     form.registerReceiver(register, new IntentFilter(name));
-    activeBroadcasts.put(name, register);
+    registeredBroadcasts.put(name, register);
   }
 
   @SimpleEvent(description = "Should be used for receiving events from the background process")
@@ -309,12 +336,12 @@ public class Itoo extends AndroidNonvisibleComponent {
 
   @SimpleFunction
   public void UnregisterBroadcast(String name) {
-    BroadcastReceiver register = activeBroadcasts.get(name);
+    BroadcastReceiver register = registeredBroadcasts.get(name);
     if (register == null) {
       return;
     }
     form.unregisterReceiver(register);
-    activeBroadcasts.remove(name);
+    registeredBroadcasts.remove(name);
   }
 
   @SimpleFunction(description = "Cancels the service by Id")
@@ -328,8 +355,10 @@ public class Itoo extends AndroidNonvisibleComponent {
   }
 
   @SimpleFunction
-  public Object FetchProperty(String name) throws IOException, JSONException {
-    if (!userData.exists(name)) return "";
+  public Object FetchProperty(String name, Object valueIfTagNotThere) throws IOException, JSONException {
+    if (!userData.exists(name)) {
+      return valueIfTagNotThere;
+    }
     return JsonUtil.getObjectFromJson(userData.get(name), true);
   }
 }
