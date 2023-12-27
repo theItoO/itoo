@@ -13,7 +13,9 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
+import org.json.JSONException;
 import xyz.kumaraswamy.itoox.Framework;
+import xyz.kumaraswamy.itoox.ItooPreferences;
 
 import java.io.IOException;
 
@@ -47,16 +49,17 @@ public class ItooService extends Service {
   private final EndActionReceiver endActionReceiver = new EndActionReceiver(this);
 
   private Framework framework;
-  private Data data;
+
+  private ItooPreferences data;
 
 
   @Override
   public void onCreate() {
     super.onCreate();
-    data = new Data(this);
+    data = new ItooPreferences(this);
     try {
-      data.put("running", "yes");
-    } catch (IOException e) {
+      data.write("running", "yes");
+    } catch (JSONException e) {
       throw new RuntimeException(e);
     }
   }
@@ -70,8 +73,8 @@ public class ItooService extends Service {
   public void onDestroy() {
     super.onDestroy();
     try {
-      data.put("running", "no");
-    } catch (IOException e) {
+      data.write("running", "no");
+    } catch (JSONException e) {
       throw new RuntimeException(e);
     }
   }
@@ -79,7 +82,9 @@ public class ItooService extends Service {
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
     Log.d(TAG, "Service Started[]");
-    if (!data.exists("screen")) return START_NOT_STICKY;
+    if (!data.contains("screen")) {
+      return START_NOT_STICKY;
+    }
 
     try {
       foregroundInit();
@@ -96,14 +101,9 @@ public class ItooService extends Service {
 
     registerReceiver(endActionReceiver, new IntentFilter(END_ACTION));
 
-    final String screen;
-    final String procedure;
-    try {
-      screen = data.get("screen");
-      procedure = data.get("procedure");
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    final String screen = (String) data.read("screen", "");
+    final String procedure = (String) data.read("procedure", "");
+
     Framework.FrameworkResult result = Framework.get(this, screen);
     if (result.success()) {
       framework = result.getFramework();
@@ -124,15 +124,15 @@ public class ItooService extends Service {
     startForeground(123321,
         new NotificationCompat.Builder(this, "ItooApple")
             .setOngoing(true)
-            .setSmallIcon(Integer.parseInt(data.get("icon")))
+            .setSmallIcon(Integer.parseInt((String) data.read("icon", "-1")))
             .setContentIntent(
                 PendingIntent.getService(
                     this,
                     127,
                     new Intent(), PendingIntent.FLAG_IMMUTABLE))
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setContentTitle(data.get("notification_title"))
-            .setContentText(data.get("notification_subtitle"))
+            .setContentTitle((String) data.read("notification_title", "Itoo X"))
+            .setContentText((String) data.read("notification_subtitle", "Itoo X"))
             .build());
   }
 

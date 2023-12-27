@@ -33,6 +33,7 @@ import xyz.kumaraswamy.itoo.receivers.StartReceiver;
 import xyz.kumaraswamy.itoox.InstanceForm;
 import xyz.kumaraswamy.itoox.ItooCreator;
 import xyz.kumaraswamy.itoox.ItooInt;
+import xyz.kumaraswamy.itoox.ItooPreferences;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -49,8 +50,9 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
 
   private int icon = android.R.drawable.ic_dialog_alert;
 
-  private final Data data;
-  private final Data userData;
+
+  private final ItooPreferences data;
+  private final ItooPreferences userData;
 
   private final Map<String, String> events = new HashMap<>();
 
@@ -102,8 +104,8 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
       creator = null;
       listenMessagesFromBackground();
     }
-    data = new Data(form);
-    userData = new Data(form, "stored_files");
+    data = new ItooPreferences(form);
+    userData = new ItooPreferences(form, "stored_files");
   }
 
   /**
@@ -167,9 +169,9 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
   }
 
   @SimpleFunction
-  public void SaveProcessForBoot(String procedure, String title, String subtitle) throws IOException {
+  public void SaveProcessForBoot(String procedure, String title, String subtitle) throws JSONException {
     dumpDetails(procedure, title, subtitle);
-    data.put("boot", "process");
+    data.write("boot", "process");
   }
 
   @SimpleFunction(description = "Starts a background service with procedure call")
@@ -187,12 +189,12 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     return true;
   }
 
-  private void dumpDetails(String procedure, String title, String subtitle) throws IOException {
-    data.put("screen", screenName)
-        .put("procedure", procedure)
-        .put("notification_title", title)
-        .put("notification_subtitle", subtitle)
-        .put("icon", String.valueOf(icon));
+  private void dumpDetails(String procedure, String title, String subtitle) throws JSONException {
+    data.write("screen", screenName)
+        .write("procedure", procedure)
+        .write("notification_title", title)
+        .write("notification_subtitle", subtitle)
+        .write("icon", String.valueOf(icon));
   }
 
   private boolean isMyServiceRunning(Class<?> serviceClass) {
@@ -218,7 +220,6 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
   }
 
   public static JobInfo build(Context context, int jobId, long latency, boolean restart, String screenName, String procedure) {
-
     ComponentName name = new ComponentName(context, ItooJobService.class);
 
     JobInfo.Builder job = new JobInfo.Builder(jobId, name)
@@ -350,15 +351,12 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
   }
 
   @SimpleFunction
-  public void StoreProperty(String name, Object value) throws IOException, JSONException {
-    userData.put(name, JsonUtil.getJsonRepresentation(value));
+  public void StoreProperty(String name, Object value) throws JSONException {
+    userData.write(name, JsonUtil.getJsonRepresentation(value));
   }
 
   @SimpleFunction
-  public Object FetchProperty(String name, Object valueIfTagNotThere) throws IOException, JSONException {
-    if (!userData.exists(name)) {
-      return valueIfTagNotThere;
-    }
-    return JsonUtil.getObjectFromJson(userData.get(name), true);
+  public Object FetchProperty(String name, Object valueIfTagNotThere) throws IOException {
+    return userData.read(name, valueIfTagNotThere);
   }
 }

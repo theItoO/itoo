@@ -5,8 +5,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.util.Log;
-import xyz.kumaraswamy.itoo.Data;
+import twitter4j.internal.org.json.JSONException;
 import xyz.kumaraswamy.itoo.ItooService;
+import xyz.kumaraswamy.itoox.ItooPreferences;
 
 import java.io.IOException;
 
@@ -16,19 +17,17 @@ public class BootReceiver extends BroadcastReceiver {
   public void onReceive(Context context, Intent intent) {
     Log.d("BootItoo", "Yep");
 
-    Data data = new Data(context);
-    if (!data.exists("boot")) return;
-    try {
-      String boot = data.get("boot");
-      if (boot.equals("process")) {
-        Intent service = new Intent(context, ItooService.class);
+    ItooPreferences data = new ItooPreferences(context);
+    if (!data.contains("boot")) {
+      return;
+    }
+    String boot = (String) data.read("boot", "");
+    if (boot.equals("process")) {
+      Intent service = new Intent(context, ItooService.class);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-          context.startForegroundService(service);
-        else context.startService(service);
-      }
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+        context.startForegroundService(service);
+      else context.startService(service);
     }
   }
 }
