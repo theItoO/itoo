@@ -352,11 +352,11 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
 
   @SimpleFunction
   public void StoreProperty(String name, Object value) throws JSONException {
-    userData.write(name, JsonUtil.getJsonRepresentation(value));
+    userData.write(name, value);
   }
 
   @SimpleFunction
-  public Object FetchProperty(String name, Object valueIfTagNotThere) throws IOException {
+  public Object FetchProperty(String name, Object valueIfTagNotThere) {
     return userData.read(name, valueIfTagNotThere);
   }
 }
