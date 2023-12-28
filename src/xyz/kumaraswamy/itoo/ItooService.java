@@ -35,6 +35,12 @@ public class ItooService extends Service {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+      String packageName = intent.getStringExtra("packageName");
+      // sometimes we may receive broadcasts from other actions
+      if (!packageName.equals(context.getPackageName())) {
+        Log.d(TAG, "Ignoring stop call, package not matches");
+        return;
+      }
       Log.d(TAG, "Received Itoo End Process Action");
       try {
         service.unregisterReceiver(this);

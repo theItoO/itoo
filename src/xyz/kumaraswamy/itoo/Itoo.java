@@ -35,7 +35,6 @@ import xyz.kumaraswamy.itoox.ItooCreator;
 import xyz.kumaraswamy.itoox.ItooInt;
 import xyz.kumaraswamy.itoox.ItooPreferences;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -260,7 +259,10 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
 
     data.delete("actions");
 
-    form.sendBroadcast(new Intent(ItooService.END_ACTION));
+    form.sendBroadcast(
+        new Intent(ItooService.END_ACTION)
+            .putExtra("packageName", form.getPackageName())
+    );
     form.stopService(new Intent(form, ItooService.class));
   }
 
