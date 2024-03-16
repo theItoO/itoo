@@ -3,6 +3,7 @@
 // See LICENSE for full details
 package xyz.kumaraswamy.itoo;
 
+import android.R;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -18,9 +19,11 @@ import android.os.PersistableBundle;
 import android.os.SystemClock;
 import android.util.Log;
 
+import com.google.appinventor.components.annotations.DesignerProperty;
 import com.google.appinventor.components.annotations.SimpleEvent;
 import com.google.appinventor.components.annotations.SimpleFunction;
 import com.google.appinventor.components.annotations.SimpleProperty;
+import com.google.appinventor.components.common.PropertyTypeConstants;
 import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
 import com.google.appinventor.components.runtime.Component;
 import com.google.appinventor.components.runtime.ComponentContainer;
@@ -29,16 +32,23 @@ import com.google.appinventor.components.runtime.OnPauseListener;
 import com.google.appinventor.components.runtime.OnResumeListener;
 import com.google.appinventor.components.runtime.util.JsonUtil;
 
+import com.google.appinventor.components.runtime.util.YailList;
 import org.json.JSONException;
 
 import xyz.kumaraswamy.itoo.receivers.BootReceiver;
 import xyz.kumaraswamy.itoo.receivers.StartReceiver;
+import xyz.kumaraswamy.itoo.scripts.ScriptManager;
 import xyz.kumaraswamy.itoox.InstanceForm;
 import xyz.kumaraswamy.itoox.ItooCreator;
 import xyz.kumaraswamy.itoox.ItooInt;
 import xyz.kumaraswamy.itoox.ItooPreferences;
+import xyz.kumaraswamy.itoox.capture.ComponentMapping;
+import xyz.kumaraswamy.itoox.capture.PropertyCapture;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener, OnResumeListener {
@@ -50,11 +60,12 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
   private final JobScheduler scheduler;
   private final AlarmManager alarmManager;
 
-  private int icon = android.R.drawable.ic_dialog_alert;
 
+  private String notificationIcon = "ic_btn_speak_now";
 
   private final ItooPreferences data;
   private final ItooPreferences userData;
+  private final ItooPreferences additionalConfig;
 
   private final Map<String, String> events = new HashMap<>();
 
@@ -81,7 +92,8 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
         @Override
         public void event(Component component, String componentName, String eventName, Object... args) throws Throwable {
           String procedure = events.get(componentName + "." + eventName);
-          Log.i("Itoo", "Event " + componentName + " invoke " + procedure);
+          // framework will do this, if debug is enabled
+          // Log.i("Itoo", "Event " + componentName + " invoke " + procedure);
           if (procedure == null) {
             return;
           }
@@ -108,6 +120,7 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     }
     data = new ItooPreferences(form);
     userData = new ItooPreferences(form, "stored_files");
+    additionalConfig = new ItooPreferences(form, "AdditionalItooConfig");
   }
 
   /**
@@ -156,22 +169,42 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
 
   @SimpleFunction
   public void RegisterEvent(String eventName, String procedure) {
+    Log.d(TAG, "Registering event " + eventName + " procedure " + procedure);
     events.put(eventName, procedure);
   }
 
-
-  @SimpleProperty
-  public void NotificationIcon(int icon) {
-    this.icon = icon;
+  @DesignerProperty(
+      editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
+      defaultValue = "True"
+  )
+  @SimpleProperty(description = "Produces extra logs that helps to debug faster. It is recommended to turn this feature" +
+      "off in production mode to avoid leaking sensitive data in logcat.")
+  public void Debug(boolean debug) throws JSONException {
+    additionalConfig.write("debug_mode", debug);
   }
 
   @SimpleProperty
-  public int NotificationIcon() {
-    return icon;
+  public boolean InBackground() {
+    return isSky;
+  }
+
+  @SimpleProperty
+  public boolean Debug() {
+    return (boolean) additionalConfig.read("debug_mode", true);
+  }
+
+  @SimpleProperty
+  public void NotificationIcon(String icon) {
+    notificationIcon = icon.trim();
+  }
+
+  @SimpleProperty
+  public String NotificationIcon() {
+    return notificationIcon;
   }
 
   @SimpleFunction
-  public void SaveProcessForBoot(String procedure, String title, String subtitle) throws JSONException {
+  public void SaveProcessForBoot(String procedure, String title, String subtitle) throws JSONException, ReflectiveOperationException {
     dumpDetails(procedure, title, subtitle);
     data.write("boot", "process");
   }
@@ -191,13 +224,41 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     return true;
   }
 
-  private void dumpDetails(String procedure, String title, String subtitle) throws JSONException {
+  private void dumpDetails(String procedure, String title, String subtitle) throws JSONException, ReflectiveOperationException {
+    int notificationIconId = (int) R.drawable.class.getField(notificationIcon).get(null);
     data.write("screen", screenName)
         .write("procedure", procedure)
         .write("notification_title", title)
         .write("notification_subtitle", subtitle)
-        .write("icon", String.valueOf(icon));
+        .write("icon", String.valueOf(notificationIconId));
   }
+
+  @SimpleFunction
+  public YailList CaptureProperties(Component component, YailList properties) throws JSONException, ReflectiveOperationException {
+    List<String> listUnsuccessful = new PropertyCapture(form)
+        .capture(form, ComponentMapping.getComponentName(component),
+            component,
+            properties.toStringArray());
+    return YailList.makeList(listUnsuccessful);
+  }
+
+  @SimpleFunction
+  public void ReleaseProperties(Component component) throws JSONException, InvocationTargetException, IllegalAccessException {
+    // only called in the background
+    new PropertyCapture(form).release(screenName,
+            creator.getComponentName(component),
+            component);
+  }
+
+  @SimpleFunction
+  public void ExecuteInternalScript(int code, YailList values) {
+    ScriptManager.handle(form, code, values.toArray());
+  }
+
+  // @SimpleFunction
+  // public void CreateEmulation(String procedure, YailList components) {
+
+  // }
 
   private boolean isMyServiceRunning(Class<?> serviceClass) {
     ActivityManager manager = (ActivityManager) form.getSystemService(Context.ACTIVITY_SERVICE);
