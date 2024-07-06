@@ -108,7 +108,12 @@ public class ItooService extends Service {
     wakeLock.setReferenceCounted(false);
     wakeLock.acquire(86_400_000L);
 
-    registerReceiver(endActionReceiver, new IntentFilter(END_ACTION));
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      // with flag "receiver isn't exported" for API levels 26 onwards
+      registerReceiver(endActionReceiver, new IntentFilter(END_ACTION), 4);
+    } else {
+      registerReceiver(endActionReceiver, new IntentFilter(END_ACTION));
+    }
 
     final String screen = (String) data.read("screen", "");
     final String procedure = (String) data.read("procedure", "");

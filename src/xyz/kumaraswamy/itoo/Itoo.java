@@ -19,6 +19,7 @@ import android.os.PersistableBundle;
 import android.os.SystemClock;
 import android.util.Log;
 
+import androidx.core.content.ContextCompat;
 import com.google.appinventor.components.annotations.DesignerProperty;
 import com.google.appinventor.components.annotations.SimpleEvent;
 import com.google.appinventor.components.annotations.SimpleFunction;
@@ -140,7 +141,12 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
         }
       }
     };
-    form.registerReceiver(register, new IntentFilter("itoo_x_reserved"));
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      // with flag "receiver isn't exported" for API levels 26 onwards
+      form.registerReceiver(register, new IntentFilter("itoo_x_reserved"), 4);
+    } else {
+      form.registerReceiver(register, new IntentFilter("itoo_x_reserved"));
+    }
     registeredBroadcasts.put("itoo_x_reserved", register);
   }
 
@@ -149,7 +155,12 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     Log.d(TAG, "onResume()");
 
     for (Map.Entry<String, BroadcastReceiver> broadcast : registeredBroadcasts.entrySet()) {
-      form.registerReceiver(broadcast.getValue(), new IntentFilter(broadcast.getKey()));
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        // with flag "receiver isn't exported" for API levels 26 onwards
+        form.registerReceiver(broadcast.getValue(), new IntentFilter(broadcast.getKey()), 4);
+      } else {
+        form.registerReceiver(broadcast.getValue(), new IntentFilter(broadcast.getKey()));
+      }
     }
   }
 
@@ -392,7 +403,12 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
         }
       }
     };
-    form.registerReceiver(register, new IntentFilter(name));
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      // with flag "receiver isn't exported" for API levels 26 onwards
+      form.registerReceiver(register, new IntentFilter(name), 4);
+    } else {
+      form.registerReceiver(register, new IntentFilter(name));
+    }
     registeredBroadcasts.put(name, register);
   }
 
