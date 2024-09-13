@@ -279,7 +279,7 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
             .write("service_type", serviceType);
   }
 
-  //@SimpleFunction
+  @SimpleFunction
   public YailList CaptureProperties(Component component, YailList properties) throws JSONException, ReflectiveOperationException {
     List<String> listUnsuccessful = new PropertyCapture(form)
             .capture(form, ComponentMapping.getComponentName(component),
@@ -288,7 +288,7 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     return YailList.makeList(listUnsuccessful);
   }
 
-  //@SimpleFunction
+  @SimpleFunction
   public void ReleaseProperties(Component component) throws JSONException, InvocationTargetException, IllegalAccessException {
     // only called in the background
     new PropertyCapture(form).release(screenName,
