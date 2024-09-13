@@ -9,30 +9,20 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
+import android.content.*;
 import android.os.Build;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
 import android.util.Log;
 
-import androidx.core.content.ContextCompat;
 import com.google.appinventor.components.annotations.DesignerProperty;
 import com.google.appinventor.components.annotations.SimpleEvent;
 import com.google.appinventor.components.annotations.SimpleFunction;
 import com.google.appinventor.components.annotations.SimpleProperty;
 import com.google.appinventor.components.common.PropertyTypeConstants;
-import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
-import com.google.appinventor.components.runtime.Component;
-import com.google.appinventor.components.runtime.ComponentContainer;
-import com.google.appinventor.components.runtime.EventDispatcher;
-import com.google.appinventor.components.runtime.OnPauseListener;
-import com.google.appinventor.components.runtime.OnResumeListener;
-import com.google.appinventor.components.runtime.util.JsonUtil;
+import com.google.appinventor.components.runtime.*;
 
+import com.google.appinventor.components.runtime.util.JsonUtil;
 import com.google.appinventor.components.runtime.util.YailList;
 import org.json.JSONException;
 
@@ -46,7 +36,6 @@ import xyz.kumaraswamy.itoox.ItooPreferences;
 import xyz.kumaraswamy.itoox.capture.ComponentMapping;
 import xyz.kumaraswamy.itoox.capture.PropertyCapture;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.List;
@@ -61,8 +50,8 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
   private final JobScheduler scheduler;
   private final AlarmManager alarmManager;
 
-
-  private String notificationIcon = "ic_btn_speak_now";
+  private String notificationIcon = "ic_dialog_alert";
+  private String foregroundServiceType = "datasync";
 
   private final ItooPreferences data;
   private final ItooPreferences userData;
@@ -141,11 +130,13 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
         }
       }
     };
+    IntentFilter filter = new IntentFilter("itoo_x_reserved");
+    filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY - 1);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       // with flag "receiver isn't exported" for API levels 26 onwards
-      form.registerReceiver(register, new IntentFilter("itoo_x_reserved"), 4);
+      form.registerReceiver(register, filter, 4);
     } else {
-      form.registerReceiver(register, new IntentFilter("itoo_x_reserved"));
+      form.registerReceiver(register, filter);
     }
     registeredBroadcasts.put("itoo_x_reserved", register);
   }
@@ -155,11 +146,13 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     Log.d(TAG, "onResume()");
 
     for (Map.Entry<String, BroadcastReceiver> broadcast : registeredBroadcasts.entrySet()) {
+      IntentFilter filter = new IntentFilter(broadcast.getKey());
+      filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY - 1);
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         // with flag "receiver isn't exported" for API levels 26 onwards
-        form.registerReceiver(broadcast.getValue(), new IntentFilter(broadcast.getKey()), 4);
+        form.registerReceiver(broadcast.getValue(), filter, 4);
       } else {
-        form.registerReceiver(broadcast.getValue(), new IntentFilter(broadcast.getKey()));
+        form.registerReceiver(broadcast.getValue(), filter);
       }
     }
   }
@@ -185,11 +178,11 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
   }
 
   @DesignerProperty(
-      editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
-      defaultValue = "True"
+          editorType = PropertyTypeConstants.PROPERTY_TYPE_BOOLEAN,
+          defaultValue = "True"
   )
   @SimpleProperty(description = "Produces extra logs that helps to debug faster. It is recommended to turn this feature" +
-      "off in production mode to avoid leaking sensitive data in logcat.")
+          "off in production mode to avoid leaking sensitive data in logcat.")
   public void Debug(boolean debug) throws JSONException {
     additionalConfig.write("debug_mode", debug);
   }
@@ -214,46 +207,88 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     return notificationIcon;
   }
 
+  @DesignerProperty(
+          editorType = PropertyTypeConstants.PROPERTY_TYPE_CHOICES,
+          editorArgs = {
+                  "Camera",
+                  "ConnectedDevice",
+                  "DataSync",
+                  "Health",
+                  "Location",
+                  "MediaPlayback",
+                  "MediaProcessing",
+                  "MediaProjection",
+                  "Microphone",
+                  "PhoneCall",
+                  "RemoteMessaging",
+                  "ShortService",
+                  "SpecialUse",
+                  "SystemExempted"
+          },
+          defaultValue = "DataSync"
+  )
+  @SimpleProperty(description = "Set a relevant foreground service type based on work done.")
+  public void ForegroundServiceType(String type) {
+    type = type.trim().toLowerCase(); // we have to sanitize
+    foregroundServiceType = type;
+  }
+
+  @SimpleProperty
+  public String ForegroundServiceType() {
+    return foregroundServiceType;
+  }
+
   @SimpleFunction
-  public void SaveProcessForBoot(String procedure, String title, String subtitle) throws JSONException, ReflectiveOperationException {
-    dumpDetails(procedure, title, subtitle);
+  public void SaveProcessForBoot(String procedure,
+                                 String title,
+                                 String subtitle) throws JSONException, ReflectiveOperationException {
+    dumpDetails(procedure, title, subtitle, foregroundServiceType);
     data.write("boot", "process");
   }
 
   @SimpleFunction(description = "Starts a background service with procedure call")
-  public boolean CreateProcess(String procedure, String title, String subtitle) throws Exception {
+  public boolean CreateProcess(String procedure,
+                               String title,
+                               String subtitle) throws Exception {
+    Log.d(TAG, "CreateProcess");
     StopProcess();
-    dumpDetails(procedure, title, subtitle);
+    dumpDetails(procedure, title, subtitle, foregroundServiceType);
 
     Intent service = new Intent(form, ItooService.class);
+    Log.d(TAG, "Service: " + service);
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       form.startForegroundService(service);
     } else {
       form.startService(service);
     }
+    Log.d(TAG, "Started");
     return true;
   }
 
-  private void dumpDetails(String procedure, String title, String subtitle) throws JSONException, ReflectiveOperationException {
+  private void dumpDetails(String procedure,
+                           String title,
+                           String subtitle,
+                           String serviceType) throws JSONException, ReflectiveOperationException {
     int notificationIconId = (int) R.drawable.class.getField(notificationIcon).get(null);
     data.write("screen", screenName)
-        .write("procedure", procedure)
-        .write("notification_title", title)
-        .write("notification_subtitle", subtitle)
-        .write("icon", String.valueOf(notificationIconId));
+            .write("procedure", procedure)
+            .write("notification_title", title)
+            .write("notification_subtitle", subtitle)
+            .write("icon", String.valueOf(notificationIconId))
+            .write("service_type", serviceType);
   }
 
-  @SimpleFunction
+  //@SimpleFunction
   public YailList CaptureProperties(Component component, YailList properties) throws JSONException, ReflectiveOperationException {
     List<String> listUnsuccessful = new PropertyCapture(form)
-        .capture(form, ComponentMapping.getComponentName(component),
-            component,
-            properties.toStringArray());
+            .capture(form, ComponentMapping.getComponentName(component),
+                    component,
+                    properties.toStringArray());
     return YailList.makeList(listUnsuccessful);
   }
 
-  @SimpleFunction
+  //@SimpleFunction
   public void ReleaseProperties(Component component) throws JSONException, InvocationTargetException, IllegalAccessException {
     // only called in the background
     new PropertyCapture(form).release(screenName,
@@ -265,11 +300,6 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
   public void ExecuteInternalScript(int code, YailList values) {
     ScriptManager.handle(form, code, values.toArray());
   }
-
-  // @SimpleFunction
-  // public void CreateEmulation(String procedure, YailList components) {
-
-  // }
 
   private boolean isMyServiceRunning(Class<?> serviceClass) {
     ActivityManager manager = (ActivityManager) form.getSystemService(Context.ACTIVITY_SERVICE);
@@ -297,9 +327,9 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     ComponentName name = new ComponentName(context, ItooJobService.class);
 
     JobInfo.Builder job = new JobInfo.Builder(jobId, name)
-        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE)
-        .setMinimumLatency(latency)
-        .setOverrideDeadline(latency + 100);
+            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE)
+            .setMinimumLatency(latency)
+            .setOverrideDeadline(latency + 100);
 
     PersistableBundle bundle = new PersistableBundle();
 
@@ -334,10 +364,10 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
 
     data.delete("actions");
 
-    form.sendBroadcast(
-        new Intent(ItooService.END_ACTION)
-            .putExtra("packageName", form.getPackageName())
-    );
+//    form.sendBroadcast(
+//            new Intent(ItooService.END_ACTION)
+//                    .putExtra("packageName", form.getPackageName())
+//    );
     form.stopService(new Intent(form, ItooService.class));
   }
 
@@ -360,9 +390,9 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     intent.putExtra("screen_name", screenName);
 
     PendingIntent pendingIntent = PendingIntent.getBroadcast(form,
-        (timeMillis + procedure).hashCode(),
-        intent,
-        PendingIntent.FLAG_IMMUTABLE);
+            (timeMillis + procedure).hashCode(),
+            intent,
+            PendingIntent.FLAG_IMMUTABLE);
     alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, timeMillis, pendingIntent);
   }
 
@@ -380,6 +410,7 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
           .putExtra("value",
               JsonUtil.getJsonRepresentation(message));
     }
+    intent.setPackage(form.getPackageName());
     form.sendBroadcast(intent);
   }
 
@@ -403,11 +434,13 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
         }
       }
     };
+    IntentFilter filter = new IntentFilter(name);
+    filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY - 1);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       // with flag "receiver isn't exported" for API levels 26 onwards
-      form.registerReceiver(register, new IntentFilter(name), 4);
+      form.registerReceiver(register, filter, 4);
     } else {
-      form.registerReceiver(register, new IntentFilter(name));
+      form.registerReceiver(register, filter);
     }
     registeredBroadcasts.put(name, register);
   }

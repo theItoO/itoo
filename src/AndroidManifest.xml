@@ -9,12 +9,18 @@
 
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
 
 
     <application>
         <service android:name="xyz.kumaraswamy.itoo.ItooService"
+                 android:foregroundServiceType="dataSync"
                  android:process=":doraemon"
-                 android:exported="true"/>
+                 android:exported="true">
+            <property
+                    android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                    android:value="ItooX Background"/>
+        </service>
 
         <service android:name="xyz.kumaraswamy.itoo.ItooJobService"
                  android:permission="android.permission.BIND_JOB_SERVICE"

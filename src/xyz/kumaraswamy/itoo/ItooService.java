@@ -3,17 +3,12 @@
 // See LICENSE for full details
 package xyz.kumaraswamy.itoo;
 
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.app.Service;
+import android.app.*;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.Build;
-import android.os.IBinder;
-import android.os.PowerManager;
+import android.os.*;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import org.json.JSONException;
@@ -95,8 +90,12 @@ public class ItooService extends Service {
       return START_NOT_STICKY;
     }
 
+    final String serviceType = (String) data.read("service_type", "specialuse");
+    Log.d(TAG, "Service Type: " + serviceType);
+    final int serviceTypeCode = getServiceTypeCode(serviceType);
+
     try {
-      foregroundInit();
+      foregroundInit(serviceTypeCode);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -133,21 +132,62 @@ public class ItooService extends Service {
     return START_STICKY;
   }
 
-  private void foregroundInit() throws IOException {
+  private static int getServiceTypeCode(String serviceType) {
+    if ("camera".equals(serviceType)) {
+      return 64;
+    } else if ("connecteddevice".equals(serviceType)) {
+      return 16;
+    } else if ("datasync".equals(serviceType)) {
+      return 1;
+    } else if ("health".equals(serviceType)) {
+      return 256;
+    } else if ("location".equals(serviceType)) {
+      return 8;
+    } else if ("mediaplayback".equals(serviceType)) {
+      return 2;
+    } else if ("mediaprocessing".equals(serviceType)) {
+      return 8192;
+    } else if ("mediaprojection".equals(serviceType)) {
+      return 32;
+    } else if ("microphone".equals(serviceType)) {
+      return 128;
+    } else if ("phonecall".equals(serviceType)) {
+      return 4;
+    } else if ("shortservice".equals(serviceType)) {
+      return 2048;
+    } else if ("remotemessaging".equals(serviceType)) {
+      return 512;
+    } else if ("systemexempted".equals(serviceType)) {
+      return 1024;
+    } else if ("specialuse".equals(serviceType)) {
+      return 1073741824;
+    } else {
+      Log.d(TAG, "Unknown service type, defaulting to specialUse");
+      return 1073741824; // special use
+    }
+  }
+
+  private void foregroundInit(int serviceType) throws IOException {
     notificationChannel();
-    startForeground(123321,
-        new NotificationCompat.Builder(this, "ItooApple")
+    Notification notification = new NotificationCompat.Builder(this, "ItooApple")
             .setOngoing(true)
             .setSmallIcon(Integer.parseInt((String) data.read("icon", "-1")))
             .setContentIntent(
-                PendingIntent.getService(
-                    this,
-                    127,
-                    new Intent(), PendingIntent.FLAG_IMMUTABLE))
+                    PendingIntent.getService(
+                            this,
+                            127,
+                            new Intent(), PendingIntent.FLAG_IMMUTABLE))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentTitle((String) data.read("notification_title", "Itoo X"))
             .setContentText((String) data.read("notification_subtitle", "Itoo X"))
-            .build());
+            .build();
+    int notificationId = 123321;
+    if (Build.VERSION.SDK_INT >= 34) {
+      // we have to specify a service type
+      startForeground(notificationId, notification, serviceType);
+    } else {
+      startForeground(notificationId, notification);
+    }
   }
 
   private void notificationChannel() {
