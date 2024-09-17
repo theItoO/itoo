@@ -9,7 +9,11 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
-import android.content.*;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Build;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
@@ -20,8 +24,13 @@ import com.google.appinventor.components.annotations.SimpleEvent;
 import com.google.appinventor.components.annotations.SimpleFunction;
 import com.google.appinventor.components.annotations.SimpleProperty;
 import com.google.appinventor.components.common.PropertyTypeConstants;
-import com.google.appinventor.components.runtime.*;
 
+import com.google.appinventor.components.runtime.AndroidNonvisibleComponent;
+import com.google.appinventor.components.runtime.Component;
+import com.google.appinventor.components.runtime.ComponentContainer;
+import com.google.appinventor.components.runtime.EventDispatcher;
+import com.google.appinventor.components.runtime.OnPauseListener;
+import com.google.appinventor.components.runtime.OnResumeListener;
 import com.google.appinventor.components.runtime.util.JsonUtil;
 import com.google.appinventor.components.runtime.util.YailList;
 import org.json.JSONException;
@@ -29,10 +38,7 @@ import org.json.JSONException;
 import xyz.kumaraswamy.itoo.receivers.BootReceiver;
 import xyz.kumaraswamy.itoo.receivers.StartReceiver;
 import xyz.kumaraswamy.itoo.scripts.ScriptManager;
-import xyz.kumaraswamy.itoox.InstanceForm;
-import xyz.kumaraswamy.itoox.ItooCreator;
-import xyz.kumaraswamy.itoox.ItooInt;
-import xyz.kumaraswamy.itoox.ItooPreferences;
+import xyz.kumaraswamy.itoox.*;
 import xyz.kumaraswamy.itoox.capture.ComponentMapping;
 import xyz.kumaraswamy.itoox.capture.PropertyCapture;
 
@@ -82,10 +88,8 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
         @Override
         public void event(Component component, String componentName, String eventName, Object... args) throws Throwable {
           String procedure = events.get(componentName + "." + eventName);
-          // framework will do this, if debug is enabled
-          // Log.i("Itoo", "Event " + componentName + " invoke " + procedure);
           if (procedure == null) {
-            return;
+            procedure = componentName + "_" + eventName;
           }
           formX.creator.startProcedureInvoke(procedure, args);
         }
@@ -155,6 +159,7 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
         form.registerReceiver(broadcast.getValue(), filter);
       }
     }
+    UIProcedureInvocation.register();
   }
 
   @SuppressWarnings("CommentedOutCode")
@@ -165,6 +170,7 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     for (BroadcastReceiver register : registeredBroadcasts.values()) {
       form.unregisterReceiver(register);
     }
+    UIProcedureInvocation.unregister();
     // EXPERIMENTAL: block forward
     // if (!isSky) {
     //  ActionReceiver.unregister(form);
@@ -279,6 +285,25 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
             .write("service_type", serviceType);
   }
 
+  @SimpleFunction(description = "Call a background procedure while in the application.")
+  public void CallBackgroundProcedure(String name, YailList args) throws JSONException {
+    if (isSky) {
+      // Only meant to be called from U.I
+      return;
+    }
+    Object[] argObjects = args.toArray();
+    int argsLen = argObjects.length;
+    String[] serialized = new String[argsLen];
+    for (int i = 0; i < argsLen; i++) {
+      serialized[i] = JsonUtil.getJsonRepresentation(argObjects[i]);
+    }
+    Intent intent = new Intent(BackgroundProcedureReceiver.BACKGROUND_PROCEDURE_RECEIVER);
+    intent.putExtra("procedure", name);
+    intent.putExtra("args", serialized);
+    intent.setPackage(form.getPackageName());
+    form.sendBroadcast(intent);
+  }
+
   @SimpleFunction
   public YailList CaptureProperties(Component component, YailList properties) throws JSONException, ReflectiveOperationException {
     List<String> listUnsuccessful = new PropertyCapture(form)
@@ -364,10 +389,10 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
 
     data.delete("actions");
 
-//    form.sendBroadcast(
-//            new Intent(ItooService.END_ACTION)
-//                    .putExtra("packageName", form.getPackageName())
-//    );
+    form.sendBroadcast(
+            new Intent(ItooService.END_ACTION)
+                    .putExtra("packageName", form.getPackageName())
+    );
     form.stopService(new Intent(form, ItooService.class));
   }
 
@@ -396,7 +421,7 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, timeMillis, pendingIntent);
   }
 
-  @SimpleFunction(description = "Broadcasts a message to a service/process")
+  @SimpleFunction(description = "Broadcasts a message to a service/process or the app")
   public void Broadcast(String name, Object message) throws JSONException {
     Intent intent;
     if (isSky) {
