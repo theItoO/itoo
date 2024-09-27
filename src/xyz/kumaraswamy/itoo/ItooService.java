@@ -13,6 +13,7 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import org.json.JSONException;
 import xyz.kumaraswamy.itoox.Framework;
+import xyz.kumaraswamy.itoox.ItooInt;
 import xyz.kumaraswamy.itoox.ItooPreferences;
 
 import java.io.IOException;
@@ -56,7 +57,6 @@ public class ItooService extends Service {
 
   private ItooPreferences data;
 
-
   @Override
   public void onCreate() {
     super.onCreate();
@@ -94,9 +94,14 @@ public class ItooService extends Service {
     Log.d(TAG, "Service Type: " + serviceType);
     final int serviceTypeCode = getServiceTypeCode(serviceType);
 
+    //noinspection TryWithIdenticalCatches
     try {
       foregroundInit(serviceTypeCode);
     } catch (IOException e) {
+      throw new RuntimeException(e);
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    } catch (JSONException e) {
       throw new RuntimeException(e);
     }
 
@@ -167,16 +172,16 @@ public class ItooService extends Service {
     }
   }
 
-  private void foregroundInit(int serviceType) throws IOException {
+  private void foregroundInit(int serviceType) throws IOException, ClassNotFoundException, JSONException {
     notificationChannel();
+    ItooInt itooInt = new ItooInt(this, "Screen1");
+    Intent intent = new Intent(this, Class.forName(itooInt.getScreenPkgName("Screen1")));
+    PendingIntent pd = PendingIntent.getActivity(this, 127, intent, PendingIntent.FLAG_IMMUTABLE);
     Notification notification = new NotificationCompat.Builder(this, "ItooApple")
             .setOngoing(true)
             .setSmallIcon(Integer.parseInt((String) data.read("icon", "-1")))
-            .setContentIntent(
-                    PendingIntent.getService(
-                            this,
-                            127,
-                            new Intent(), PendingIntent.FLAG_IMMUTABLE))
+            .setContentIntent(pd)
+            .setAutoCancel(false)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentTitle((String) data.read("notification_title", "Itoo X"))
             .setContentText((String) data.read("notification_subtitle", "Itoo X"))

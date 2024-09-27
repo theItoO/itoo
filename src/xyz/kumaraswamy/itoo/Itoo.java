@@ -38,7 +38,12 @@ import org.json.JSONException;
 import xyz.kumaraswamy.itoo.receivers.BootReceiver;
 import xyz.kumaraswamy.itoo.receivers.StartReceiver;
 import xyz.kumaraswamy.itoo.scripts.ScriptManager;
-import xyz.kumaraswamy.itoox.*;
+import xyz.kumaraswamy.itoox.BackgroundProcedureReceiver;
+import xyz.kumaraswamy.itoox.InstanceForm;
+import xyz.kumaraswamy.itoox.ItooCreator;
+import xyz.kumaraswamy.itoox.ItooInt;
+import xyz.kumaraswamy.itoox.ItooPreferences;
+import xyz.kumaraswamy.itoox.UIProcedureInvocation;
 import xyz.kumaraswamy.itoox.capture.ComponentMapping;
 import xyz.kumaraswamy.itoox.capture.PropertyCapture;
 
