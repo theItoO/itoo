@@ -43,11 +43,10 @@ public class ItooService extends Service {
       Log.d(TAG, "Received Itoo End Process Action");
       try {
         service.unregisterReceiver(this);
-        service.framework.close();
-        service.stopForeground(Service.STOP_FOREGROUND_REMOVE);
-      } catch (Exception e) {
-        throw new RuntimeException(e);
+      } catch (Throwable ignored) {
+
       }
+      service.stopService();
     }
   }
 
@@ -68,6 +67,15 @@ public class ItooService extends Service {
     }
   }
 
+  private void stopService() {
+    try {
+      framework.close();
+      stopForeground(Service.STOP_FOREGROUND_REMOVE);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   @Override
   public IBinder onBind(Intent intent) {
     return null;
@@ -76,6 +84,8 @@ public class ItooService extends Service {
   @Override
   public void onDestroy() {
     super.onDestroy();
+    Log.d(TAG, "onDestroy");
+    stopService();
     try {
       data.write("running", "no");
     } catch (JSONException e) {
