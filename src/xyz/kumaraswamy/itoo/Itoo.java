@@ -75,6 +75,8 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
   private boolean isSky = false;
   private final ItooCreator creator;
 
+  private boolean uiProcedureReceiverRegistered = false;
+
   public Itoo(ComponentContainer container) throws Throwable {
     super(container.$form());
     scheduler = (JobScheduler) form.getSystemService(Context.JOB_SCHEDULER_SERVICE);
@@ -165,6 +167,7 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
       }
     }
     UIProcedureInvocation.register();
+    uiProcedureReceiverRegistered = true;
   }
 
   @SuppressWarnings("CommentedOutCode")
@@ -175,7 +178,12 @@ public class Itoo extends AndroidNonvisibleComponent implements OnPauseListener,
     for (BroadcastReceiver register : registeredBroadcasts.values()) {
       form.unregisterReceiver(register);
     }
-    UIProcedureInvocation.unregister();
+    if (uiProcedureReceiverRegistered) {
+      try {
+        UIProcedureInvocation.unregister();
+      } catch (Throwable ignored) {}
+      uiProcedureReceiverRegistered = false;
+    }
     // EXPERIMENTAL: block forward
     // if (!isSky) {
     //  ActionReceiver.unregister(form);
