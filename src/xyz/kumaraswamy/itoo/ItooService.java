@@ -192,7 +192,7 @@ public class ItooService extends Service {
             .setSmallIcon(Integer.parseInt((String) data.read("icon", "-1")))
             .setContentIntent(pd)
             .setAutoCancel(false)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentTitle((String) data.read("notification_title", "Itoo X"))
             .setContentText((String) data.read("notification_subtitle", "Itoo X"))
             .build();
@@ -210,7 +210,7 @@ public class ItooService extends Service {
       NotificationChannel serviceChannel = new NotificationChannel(
           "ItooApple",
           "ItooApple",
-          NotificationManager.IMPORTANCE_HIGH
+          NotificationManager.IMPORTANCE_DEFAULT
       );
       serviceChannel.setSound(null, null);
       NotificationManager manager = (NotificationManager)
